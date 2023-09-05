@@ -1,0 +1,6 @@
+Filename,delete_orderbook_time,delete_orderbook_reads,delete_orderbook_writes,place_limit_order_time,place_limit_order_reads,place_limit_order_writes,cancel_limit_order_first_time,cancel_limit_order_first_reads,cancel_limit_order_first_writes,cancel_limit_order_last_time,cancel_limit_order_last_reads,cancel_limit_order_last_writes,execute_market_order_time,execute_market_order_reads,execute_market_order_writes,quote_time,quote_reads,quote_writes,exchange_time,exchange_reads,exchange_writes
+preset_1_raw.json,10300000,649,647,4776000,334,331,127000,9,7,85000,9,7,4149000,328,325,24000,3,0,3741000,328,325
+preset_2_raw.json,39644000,2313,2311,15999000,1166,1163,91000,9,7,94000,9,7,15645000,1160,1157,29000,3,0,15350000,1160,1157
+preset_3_raw.json,181806000,8713,8711,74532000,4366,4363,108000,9,7,107000,9,7,73342000,4360,4357,42000,3,0,71433000,4360,4357
+preset_4_raw.json,866196000,33801,33799,367741000,16910,16907,132000,9,7,131000,9,7,361401000,16904,16901,87000,3,0,367266000,16904,16901
+preset_5_raw.json,4754897000,133129,133127,2155386000,66574,66571,184000,9,7,189000,9,7,2066461000,66568,66565,121000,3,0,1996910000,66568,66565

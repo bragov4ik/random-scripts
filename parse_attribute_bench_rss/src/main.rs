@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use syn::{parse_file, Expr, Item, Lit, Stmt, ExprMethodCall, ExprCall};
+use syn::{parse_file, Expr, ExprCall, ExprMethodCall, Item, Lit, Stmt};
 
 use std::error::Error;
 use std::fs;
@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         }
                         Err(e) => {
                             eprintln!("error! {:?}", e);
-                        },
+                        }
                     }
                 }
             }
@@ -79,14 +79,18 @@ struct WeightCall {
 
 impl WeightCall {
     fn from_parts_only(call: ExprCall) -> Self {
-        WeightCall { from_parts_call: call, reads_saturating_add: None, writes_saturating_add: None}
+        WeightCall {
+            from_parts_call: call,
+            reads_saturating_add: None,
+            writes_saturating_add: None,
+        }
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 enum AddType {
     Reads,
-    Writes
+    Writes,
 }
 
 fn resolve_add(add: &ExprMethodCall) -> Result<AddType> {
@@ -95,7 +99,7 @@ fn resolve_add(add: &ExprMethodCall) -> Result<AddType> {
     match &*format!("{}", method_call.method) {
         "reads" => Ok(AddType::Reads),
         "writes" => Ok(AddType::Writes),
-        other => Err(anyhow!("Expected `reads` or `writes`, got `{}`", other))
+        other => Err(anyhow!("Expected `reads` or `writes`, got `{}`", other)),
     }
 }
 
@@ -106,31 +110,44 @@ fn parse_expr_parts(weight_expr: &Expr) -> Result<WeightCall> {
                 Expr::MethodCall(saturating_add_first) => {
                     // two adds
                     let Expr::Call(from_parts_call) = saturating_add_first.receiver.as_ref().clone() else { return Err(anyhow!("Couldn't parse `from_parts` call")) };
-                    match (resolve_add(saturating_add_first)?, resolve_add(saturating_add_last)?) {
-                        (AddType::Reads, AddType::Writes) => Ok(WeightCall{ from_parts_call, reads_saturating_add: Some(saturating_add_first.clone()), writes_saturating_add: Some(saturating_add_last.clone()) }),
-                        (AddType::Writes, AddType::Reads) => Ok(WeightCall{ from_parts_call, reads_saturating_add: Some(saturating_add_last.clone()), writes_saturating_add: Some(saturating_add_first.clone()) }),
-                        c => Err(anyhow!("Expected one reads and one writes, got {:?}", c))
+                    match (
+                        resolve_add(saturating_add_first)?,
+                        resolve_add(saturating_add_last)?,
+                    ) {
+                        (AddType::Reads, AddType::Writes) => Ok(WeightCall {
+                            from_parts_call,
+                            reads_saturating_add: Some(saturating_add_first.clone()),
+                            writes_saturating_add: Some(saturating_add_last.clone()),
+                        }),
+                        (AddType::Writes, AddType::Reads) => Ok(WeightCall {
+                            from_parts_call,
+                            reads_saturating_add: Some(saturating_add_last.clone()),
+                            writes_saturating_add: Some(saturating_add_first.clone()),
+                        }),
+                        c => Err(anyhow!("Expected one reads and one writes, got {:?}", c)),
                     }
                 }
                 Expr::Call(from_parts_call) => {
                     // only one add
                     let mut call = WeightCall::from_parts_only(from_parts_call.clone());
                     match resolve_add(saturating_add_last)? {
-                        AddType::Reads => call.reads_saturating_add = Some(saturating_add_last.clone()),
-                        AddType::Writes => call.writes_saturating_add = Some(saturating_add_last.clone()),
+                        AddType::Reads => {
+                            call.reads_saturating_add = Some(saturating_add_last.clone())
+                        }
+                        AddType::Writes => {
+                            call.writes_saturating_add = Some(saturating_add_last.clone())
+                        }
                     };
                     Ok(call)
                 }
-                other => {
-                    Err(anyhow!("Expected chained calls, got {:?}", other))
-                }
+                other => Err(anyhow!("Expected chained calls, got {:?}", other)),
             }
-        },
+        }
         Expr::Call(from_parts_call) => {
             // no adds
             Ok(WeightCall::from_parts_only(from_parts_call.clone()))
         }
-        other => { Err(anyhow!("Expected weight expr, got {:?}", other)) }
+        other => Err(anyhow!("Expected weight expr, got {:?}", other)),
     }
 }
 
@@ -143,11 +160,21 @@ fn parse_function_body(method: &syn::ImplItemMethod) -> Result<(u128, u128, u128
         return Err(anyhow!("Expected an expr at the end of the fn"))
     };
 
-    let WeightCall {from_parts_call, writes_saturating_add, reads_saturating_add} = parse_expr_parts(weight_expr)?;
+    let WeightCall {
+        from_parts_call,
+        writes_saturating_add,
+        reads_saturating_add,
+    } = parse_expr_parts(weight_expr)?;
 
     let (time, proof_size) = parse_from_parts_call(&from_parts_call)?;
 
-    let reads = reads_saturating_add.map(|body| parse_saturating_add_body(&body.args[0])).transpose()?.unwrap_or(0);
-    let writes = writes_saturating_add.map(|body| parse_saturating_add_body(&body.args[0])).transpose()?.unwrap_or(0);
+    let reads = reads_saturating_add
+        .map(|body| parse_saturating_add_body(&body.args[0]))
+        .transpose()?
+        .unwrap_or(0);
+    let writes = writes_saturating_add
+        .map(|body| parse_saturating_add_body(&body.args[0]))
+        .transpose()?
+        .unwrap_or(0);
     Ok((time, proof_size, reads, writes))
 }

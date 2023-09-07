@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use syn::{parse_file, Expr, Item, Lit, Stmt};
+use syn::{parse_file, Expr, Item, Lit, Stmt, ExprMethodCall};
 
 use std::error::Error;
 use std::fs;
@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 name, preset, time, reads, writes, proof_size
                             )?;
                         }
-                        Err(e) => eprintln!("{}", e),
+                        Err(e) => eprintln!("error! {:?}", e),
                     }
                 }
             }
@@ -45,7 +45,6 @@ fn find_function_info(
 ) -> Result<(String, String, u128, u128, u128, u128)> {
     let fn_name = method.sig.ident.to_string();
     let (fn_name, fn_preset_n) = fn_name.rsplit_once("_").expect("Unexpected fn name");
-
     parse_funciton_body(method)
         .context(format!("parsing fn {}_{}", fn_name, fn_preset_n))
         .map(|(a, b, c, d)| (fn_name.to_owned(), fn_preset_n.to_owned(), a, b, c, d))
@@ -56,7 +55,7 @@ fn parse_funciton_body(method: &syn::ImplItemMethod) -> Result<(u128, u128, u128
         .block
         .stmts
         .last()
-        .expect(&format!("Expected fn to be non-empty "));
+        .ok_or(anyhow!("Expected fn to be non-empty "))?;
     let Stmt::Expr(Expr::MethodCall(saturating_add_2)) = weight_stmt else { return Err(anyhow!("Expected a method call at the end of the fn")) };
 
     let Expr::MethodCall(saturating_add_1) = saturating_add_2.receiver.as_ref() else { return Err(anyhow!("Couldn't parse first add")) };
@@ -72,14 +71,24 @@ fn parse_funciton_body(method: &syn::ImplItemMethod) -> Result<(u128, u128, u128
     let proof_size = parse_int_lit(&from_parts_call.args[1])
         .context("parsing second argument to the 3rd call from the end ")?;
 
-    fn parse_saturating_add_body(body: &Expr) -> Result<u128> {
-        let Expr::MethodCall(method_call) = body else { return Err(anyhow!("Expected method call")) };
+    fn parse_saturating_add_body(method_call: &ExprMethodCall) -> Result<u128> {
         parse_int_lit(&method_call.args[0]).context("parsing literal in saturaring add (first) arg")
     }
 
-    let reads = parse_saturating_add_body(&saturating_add_1.args[0])
-        .context("parsing first argument to the 2nd saturating_add(?) from the end")?;
-    let writes = parse_saturating_add_body(&saturating_add_2.args[0])
-        .context("parsing first argument to the 1st saturating_add(?) from the end")?;
+    fn parse_with_name_in_saturating_add_body(body: &Expr, expected_name: &str) -> Result<Option<u128>> {
+        let Expr::MethodCall(method_call) = body else { return Err(anyhow!("Expected method call")) };
+        if format!("{}", method_call.method) == expected_name {
+            parse_saturating_add_body(method_call).map(Some)
+        }
+        else {
+            Ok(None)
+        }
+    }
+
+    let Some(reads) = parse_with_name_in_saturating_add_body(&saturating_add_1.args[0], "reads")
+        .context("parsing first argument to the 2nd saturating_add(?) from the end")? else { return Err(anyhow!("Expected `reads` as the second call from the end")) };
+    let Some(writes) = parse_with_name_in_saturating_add_body(&saturating_add_2.args[0], "writes")
+        .context("parsing first argument to the 1st saturating_add(?) from the end")? else { return Err(anyhow!("Expected `writes` as the latest call")) };
+
     Ok((time, proof_size, reads, writes))
 }

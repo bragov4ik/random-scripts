@@ -29,7 +29,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 name, preset, time, reads, writes, proof_size
                             )?;
                         }
-                        Err(e) => eprintln!("error! {:?}", e),
+                        Err(e) => {
+                            eprintln!("error! {:?}", e);
+                        },
                     }
                 }
             }
@@ -56,7 +58,8 @@ fn parse_int_lit(a: &Expr) -> Result<u128> {
     Ok(lit.base10_parse()?)
 }
 
-fn parse_saturating_add_body(method_call: &ExprMethodCall) -> Result<u128> {
+fn parse_saturating_add_body(body: &Expr) -> Result<u128> {
+    let Expr::MethodCall(method_call) = body else { return Err(anyhow!("Expected method call")) };
     parse_int_lit(&method_call.args[0]).context("parsing literal in saturaring add (first) arg")
 }
 
@@ -144,7 +147,7 @@ fn parse_function_body(method: &syn::ImplItemMethod) -> Result<(u128, u128, u128
 
     let (time, proof_size) = parse_from_parts_call(&from_parts_call)?;
 
-    let reads = reads_saturating_add.map(|body| parse_saturating_add_body(&body)).transpose()?.unwrap_or(0);
-    let writes = writes_saturating_add.map(|body| parse_saturating_add_body(&body)).transpose()?.unwrap_or(0);
+    let reads = reads_saturating_add.map(|body| parse_saturating_add_body(&body.args[0])).transpose()?.unwrap_or(0);
+    let writes = writes_saturating_add.map(|body| parse_saturating_add_body(&body.args[0])).transpose()?.unwrap_or(0);
     Ok((time, proof_size, reads, writes))
 }

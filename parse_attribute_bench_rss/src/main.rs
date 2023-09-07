@@ -1,9 +1,9 @@
-use syn::{parse_file, Item, Stmt, Expr, Lit, ExprMethodCall};
+use anyhow::{anyhow, Context, Result};
 use quote::quote;
-use anyhow::{ anyhow, Result, Context};
+use syn::{parse_file, Expr, ExprMethodCall, Item, Lit, Stmt};
 
-use std::fs;
 use std::error::Error;
+use std::fs;
 use std::io::Write;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -13,7 +13,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Open a CSV file for writing
     let mut output_file = fs::File::create("output.csv")?;
-    writeln!(output_file, "function name,preset,time,reads,writes,proof_size")?;
+    writeln!(
+        output_file,
+        "function name,preset,time,reads,writes,proof_size"
+    )?;
 
     for item in syntax_tree.items.iter() {
         if let Item::Impl(impl_block) = item {
@@ -21,8 +24,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 if let syn::ImplItem::Method(method) = method {
                     match find_function_info(&method) {
                         Ok((name, preset, time, reads, writes, proof_size)) => {
-                                writeln!(output_file, "{},{},{},{},{},{}", name, preset, time, reads, writes, proof_size)?;
-                        },
+                            writeln!(
+                                output_file,
+                                "{},{},{},{},{},{}",
+                                name, preset, time, reads, writes, proof_size
+                            )?;
+                        }
                         Err(e) => eprintln!("{}", e),
                     }
                 }
@@ -34,17 +41,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn find_function_info(method: &syn::ImplItemMethod) -> Result<(String, String, u128, u128, u128, u128)> {
+fn find_function_info(
+    method: &syn::ImplItemMethod,
+) -> Result<(String, String, u128, u128, u128, u128)> {
     let fn_name = method.sig.ident.to_string();
     let (fn_name, fn_preset_n) = fn_name.rsplit_once("_").expect("Unexpected fn name");
 
-    parse_funciton_body(method).context(format!("parsing fn {}_{}", fn_name, fn_preset_n))
+    parse_funciton_body(method)
+        .context(format!("parsing fn {}_{}", fn_name, fn_preset_n))
         .map(|(a, b, c, d)| (fn_name.to_owned(), fn_preset_n.to_owned(), a, b, c, d))
 }
 
 fn parse_funciton_body(method: &syn::ImplItemMethod) -> Result<(u128, u128, u128, u128)> {
-
-    let weight_stmt = method.block.stmts.last().expect(&format!("Expected fn to be non-empty "));
+    let weight_stmt = method
+        .block
+        .stmts
+        .last()
+        .expect(&format!("Expected fn to be non-empty "));
     let Stmt::Expr(Expr::MethodCall(saturating_add_2)) = weight_stmt else { return Err(anyhow!("Expected a method call at the end of the fn")) };
 
     let Expr::MethodCall(saturating_add_1) = saturating_add_2.receiver.as_ref() else { return Err(anyhow!("Couldn't parse first add")) };
@@ -55,9 +68,11 @@ fn parse_funciton_body(method: &syn::ImplItemMethod) -> Result<(u128, u128, u128
         let Lit::Int(ref lit) = expr.lit else { return Err(anyhow!("Couldn't parse non-int literal")) };
         Ok(lit.base10_parse()?)
     }
-    let time = parse_int_lit(&from_parts_call.args[0]).context("parsing first argument to the 3rd call from the end (`from_parts`?)")?;
+    let time = parse_int_lit(&from_parts_call.args[0])
+        .context("parsing first argument to the 3rd call from the end (`from_parts`?)")?;
     dbg!(time);
-    let proof_size = parse_int_lit(&from_parts_call.args[1]).context("parsing second argument to the 3rd call from the end ")?;
+    let proof_size = parse_int_lit(&from_parts_call.args[1])
+        .context("parsing second argument to the 3rd call from the end ")?;
     dbg!(proof_size);
 
     fn parse_saturating_add_body(body: &Expr) -> Result<u128> {
@@ -66,9 +81,11 @@ fn parse_funciton_body(method: &syn::ImplItemMethod) -> Result<(u128, u128, u128
         parse_int_lit(&method_call.args[0]).context("parsing literal in saturaring add (first) arg")
     }
 
-    let reads = parse_saturating_add_body(&saturating_add_1.args[0]).context("parsing first argument to the 2nd saturating_add(?) from the end")?;
+    let reads = parse_saturating_add_body(&saturating_add_1.args[0])
+        .context("parsing first argument to the 2nd saturating_add(?) from the end")?;
     dbg!(reads);
-    let writes = parse_saturating_add_body(&saturating_add_2.args[0]).context("parsing first argument to the 1st saturating_add(?) from the end")?;
+    let writes = parse_saturating_add_body(&saturating_add_2.args[0])
+        .context("parsing first argument to the 1st saturating_add(?) from the end")?;
     dbg!(writes);
     Ok((time, proof_size, reads, writes))
 }

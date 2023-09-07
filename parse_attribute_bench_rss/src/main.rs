@@ -70,22 +70,17 @@ fn parse_funciton_body(method: &syn::ImplItemMethod) -> Result<(u128, u128, u128
     }
     let time = parse_int_lit(&from_parts_call.args[0])
         .context("parsing first argument to the 3rd call from the end (`from_parts`?)")?;
-    dbg!(time);
     let proof_size = parse_int_lit(&from_parts_call.args[1])
         .context("parsing second argument to the 3rd call from the end ")?;
-    dbg!(proof_size);
 
     fn parse_saturating_add_body(body: &Expr) -> Result<u128> {
         let Expr::MethodCall(method_call) = body else { return Err(anyhow!("Expected method call")) };
-        dbg!(method_call);
         parse_int_lit(&method_call.args[0]).context("parsing literal in saturaring add (first) arg")
     }
 
     let reads = parse_saturating_add_body(&saturating_add_1.args[0])
         .context("parsing first argument to the 2nd saturating_add(?) from the end")?;
-    dbg!(reads);
     let writes = parse_saturating_add_body(&saturating_add_2.args[0])
         .context("parsing first argument to the 1st saturating_add(?) from the end")?;
-    dbg!(writes);
     Ok((time, proof_size, reads, writes))
 }

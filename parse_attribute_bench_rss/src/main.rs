@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use quote::quote;
-use syn::{parse_file, Expr, ExprMethodCall, Item, Lit, Stmt};
+use syn::{parse_file, Expr, Item, Lit, Stmt};
 
 use std::error::Error;
 use std::fs;

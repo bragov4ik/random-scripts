@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Open a CSV file for writing
     let mut output_file = fs::File::create("output.csv")?;
-    writeln!(output_file, "function name,time,reads,writes,proof_size")?;
+    writeln!(output_file, "fn name,time,reads,writes,proof size")?;
 
     let mut grouped_results: Vec<(String, Vec<(String, u128, u128, u128, u128)>)> = vec![];
 
@@ -27,8 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 if name == entry.0 {
                                     entry.1.push(record.clone());
                                     Some(())
-                                }
-                                else {
+                                } else {
                                     None
                                 }
                             }) {
@@ -46,12 +45,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     for (name, records) in grouped_results {
+        writeln!(output_file, "{},,,,", name)?;
         writeln!(
             output_file,
-            "{},,,,,",
-            name
-        )?;
-        writeln!(output_file, ",,,,,")?; // empty string
+            "fn name,ref_time (time*1000),reads,writes,proof size"
+        )?; // empty string
         for (preset, time, reads, writes, proof_size) in records {
             let combined_name = format!("{}_{}", name, preset);
             writeln!(
@@ -60,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 combined_name, time, reads, writes, proof_size
             )?;
         }
-        writeln!(output_file, ",,,,,")?; // 4 presets instead of 5
+        writeln!(output_file, ",,,,")?; // 4 presets instead of 5
     }
     println!("CSV file generated successfully!");
     Ok(())
@@ -200,5 +198,5 @@ fn parse_function_body(method: &syn::ImplItemMethod) -> Result<(u128, u128, u128
         .map(|body| parse_saturating_add_body(&body.args[0]))
         .transpose()?
         .unwrap_or(0);
-    Ok((time, proof_size, reads, writes))
+    Ok((time, reads, writes, proof_size))
 }

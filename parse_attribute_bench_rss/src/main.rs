@@ -12,10 +12,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Open a CSV file for writing
     let mut output_file = fs::File::create("output.csv")?;
-    writeln!(
-        output_file,
-        "function name,preset,time,reads,writes,proof_size"
-    )?;
+    writeln!(output_file, "function name,time,reads,writes,proof_size")?;
+
+    let mut grouped_results: Vec<(String, Vec<(String, u128, u128, u128, u128)>)> = vec![];
 
     for item in syntax_tree.items.iter() {
         if let Item::Impl(impl_block) = item {
@@ -23,11 +22,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                 if let syn::ImplItem::Method(method) = method {
                     match find_function_info(&method) {
                         Ok((name, preset, time, reads, writes, proof_size)) => {
-                            writeln!(
-                                output_file,
-                                "{},{},{},{},{},{}",
-                                name, preset, time, reads, writes, proof_size
-                            )?;
+                            let record = (preset, time, reads, writes, proof_size);
+                            if let None = grouped_results.iter_mut().find_map(|entry| {
+                                if name == entry.0 {
+                                    entry.1.push(record.clone());
+                                    Some(())
+                                }
+                                else {
+                                    None
+                                }
+                            }) {
+                                // did not find
+                                grouped_results.push((name, vec![record.clone()]))
+                            }
                         }
                         Err(e) => {
                             eprintln!("error! {:?}", e);
@@ -38,6 +45,23 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    for (name, records) in grouped_results {
+        writeln!(
+            output_file,
+            "{},,,,,",
+            name
+        )?;
+        writeln!(output_file, ",,,,,")?; // empty string
+        for (preset, time, reads, writes, proof_size) in records {
+            let combined_name = format!("{}_{}", name, preset);
+            writeln!(
+                output_file,
+                "{},{},{},{},{}",
+                combined_name, time, reads, writes, proof_size
+            )?;
+        }
+        writeln!(output_file, ",,,,,")?; // 4 presets instead of 5
+    }
     println!("CSV file generated successfully!");
     Ok(())
 }

@@ -43,10 +43,10 @@ with open(csv_file, 'w', newline='') as csvfile:
     # print(data)
     for extrinsic, rows in data.items():
         extrinsic_name_row = {n: "" for n in fieldnames}
-        field_name_row = {n: n for n in fieldnames}
+        # field_name_row = {n: n for n in fieldnames}
         extrinsic_name_row["filename"] = extrinsic
         writer.writerow(extrinsic_name_row)
-        writer.writerow(field_name_row)
+        # writer.writerow(field_name_row)
         for row in rows:
             writer.writerow(row)
 

@@ -44,12 +44,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    writeln!(
+        output_file,
+        "fn name,ref_time (time*1000),reads,writes,proof size"
+    )?; // empty string
     for (name, records) in grouped_results {
         writeln!(output_file, "{},,,,", name)?;
-        writeln!(
-            output_file,
-            "fn name,ref_time (time*1000),reads,writes,proof size"
-        )?; // empty string
         for (preset, time, reads, writes, proof_size) in records {
             let combined_name = format!("{}_{}", name, preset);
             writeln!(
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 combined_name, time, reads, writes, proof_size
             )?;
         }
-        writeln!(output_file, ",,,,")?; // 4 presets instead of 5
+        // writeln!(output_file, ",,,,")?; // 4 presets instead of 5
     }
     println!("CSV file generated successfully!");
     Ok(())

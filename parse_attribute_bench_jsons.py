@@ -29,7 +29,7 @@ for filename in os.listdir(json_dir):
                 row["writes"] = db_writes
                 data[extrinsic_name].append(row)
 
-data = {name: sorted(rows, key=lambda row: row['filename'].split("_")) for name, rows in data.items()}
+data = {name: sorted(rows, key=lambda row: int(row['filename'].split("_")[1])) for name, rows in data.items()}
 
 # Define the output CSV file
 csv_file = 'output.csv'
